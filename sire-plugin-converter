@@ -1,0 +1,92 @@
+#! /usr/bin/env python3
+'''
+Created by Yong Cao @ May 1, 2021
+'''
+import pathlib
+import argparse
+import xml.etree.ElementTree as ET
+from datetime import datetime
+from xml.dom import minidom
+from xml.dom.minidom import Document
+
+
+SIRE_VERSION_TO_SUFFIX = {
+    1: '.sirecm',
+    2: '.scp'
+}
+SIRE_SUFFIX_TO_VERSION = {
+    '.sirecm': 1,
+    '.scp': 2
+}
+
+
+class SirePlugin:
+    SIRE_1_ENCODING = 'GB2312'
+    SIRE_2_ENCODING = 'UTF-8'
+    def __init__(self, document: Document):
+        self.document = document
+
+    @classmethod
+    def from_bytes(cls, raw: bytes, encoding: str):
+        doc_str = raw.decode(encoding)
+        return cls(minidom.parseString(doc_str))
+    
+    @classmethod
+    def from_sire_1(cls, raw: bytes):
+        return cls.from_bytes(raw=raw, encoding=cls.SIRE_1_ENCODING)
+    
+    @classmethod
+    def from_sire_2(cls, raw: bytes):
+        return cls.from_bytes(raw=raw, encoding=cls.SIRE_2_ENCODING)
+    
+    def to_bytes(self, encoding: str) -> bytes:
+        return self.document.toxml(encoding=encoding) 
+    
+    def to_sire_1(self) -> bytes:
+        return self.to_bytes(encoding=self.SIRE_1_ENCODING)
+    
+    def to_sire_2(self) -> bytes:
+        return self.to_bytes(encoding=self.SIRE_2_ENCODING)
+    
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='SIRE Plugin version converter')
+    parser.add_argument('-f', '--file',
+                        help='Path to input file')
+    args = parser.parse_args()
+
+    # post process
+    file_path = pathlib.Path(args.file)
+    sire_version = SIRE_SUFFIX_TO_VERSION.get(file_path.suffix, None)
+    assert sire_version is not None, f'Suffix of input file must be `.sirecm` or `.scp`. Invalid file: {args.file}'
+    args.sire_version = sire_version
+    return args
+
+
+def main():
+    option = parse_args()
+    output_suffix = SIRE_VERSION_TO_SUFFIX[1 if option.sire_version == 2 else 2]
+    output_filename = f'{pathlib.Path(option.file).stem}{output_suffix}'
+
+    with open(option.file, 'rb') as f:
+        plugin_raw = f.read()
+    
+    if option.sire_version == 1:
+        plugin = SirePlugin.from_sire_1(plugin_raw)
+    elif option.sire_version == 2:
+        plugin = SirePlugin.from_sire_2(plugin_raw)
+    else:
+        raise Exception('Invalid SIRE_VERSION')
+    
+    with open(output_filename, 'wb') as f:
+        if option.sire_version == 1:
+            f.write(plugin.to_sire_2())
+        elif option.sire_version == 2:
+            f.write(plugin.to_sire_1())
+        else:
+            raise Exception()
+    print(f'Converted file is generated: {output_filename}')
+    
+
+if __name__ == '__main__':
+    main()
