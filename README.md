@@ -1,5 +1,5 @@
 # sire-plugin-concerter
-自动转换SIRE插件.
+自动转换SIRE 1 or 2 插件.
 
 # Warning
 **本工具只做了简单的encoding,和后缀处理，不适用于所有的SIRE Plugin**
